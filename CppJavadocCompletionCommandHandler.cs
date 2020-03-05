@@ -68,16 +68,32 @@
                 {
                     string currentLine = m_textView.TextSnapshot.GetLineFromPosition(
                             m_textView.Caret.Position.BufferPosition.Position).GetText();
-                    // check for the triple slash
-                    if (currentLine.Trim() == "/**/" && typedChar == '*')
+
+                    // check for the Javadoc slash and two asterisk pattern while compensating for visual studio's block comment closing generation
+                    if (typedChar == '*' && currentLine.Trim() == "/**/")
                     {
                         // Calculate how many spaces
                         string spaces = currentLine.Replace(currentLine.TrimStart(), "");
                         TextSelection ts = m_dte.ActiveDocument.Selection as TextSelection;
+                        //Remember where the cursor was when command was triggered
                         int oldLine = ts.ActivePoint.Line;
                         int oldOffset = ts.ActivePoint.LineCharOffset;
                         ts.LineDown();
                         ts.EndOfLine();
+                        ts.SelectLine();
+                        
+                        //Detect and skip over Unreal Engine Function Macros
+                        string trimmedFuncLine = ts.Text.Trim();
+                        if (trimmedFuncLine.StartsWith("UFUNCTION("))
+                        {
+                            ts.EndOfLine();
+                        }
+                        else
+                        {
+                            ts.MoveToLineAndOffset(oldLine, oldOffset);
+                            ts.LineDown();
+                            ts.EndOfLine();
+                        }
 
                         CodeElement codeElement = null;
                         FileCodeModel fcm = m_dte.ActiveDocument.ProjectItem.FileCodeModel;
@@ -85,7 +101,7 @@
                         {
                             codeElement = fcm.CodeElementFromPoint(ts.ActivePoint, vsCMElement.vsCMElementFunction);
                         }
-
+                        
                         if (codeElement != null && codeElement is CodeFunction)
                         {
                             CodeFunction function = codeElement as CodeFunction;
@@ -113,168 +129,51 @@
                                     sb.AppendFormat("\r\n" + spaces + " * @return ");
                                 }
                             }
-
-                            if (isNoArgsNoReturn) { sb.Insert(1, "  "); }
-                            else {
+                            
+                            //If function has a return type or parameters then we generate them and return, otherwise we skip to generate a single line comment
+                            if(!isNoArgsNoReturn)
+                            {
                                 sb.Insert(1, "\r\n" + spaces + " * ");
                                 sb.AppendFormat("\r\n" + spaces + " ");
-                            }
-
-                            ts.MoveToLineAndOffset(oldLine, oldOffset);
-                            ts.Insert(sb.ToString());
-                            ts.MoveToLineAndOffset(oldLine, oldOffset);
-                            ts.LineDown();
-                            ts.EndOfLine();
-                            return VSConstants.S_OK;
-                        }
-                        else
-                        {
-                            ts.MoveToLineAndOffset(oldLine, oldOffset);
-                            ts.Insert("*  ");
-                            ts.MoveToLineAndOffset(oldLine, oldOffset);
-                            ts.LineDown();
-                            ts.EndOfLine();
-                            return VSConstants.S_OK;
-                        }
-                    }
-                }
-
-                if (m_session != null && !m_session.IsDismissed)
-                {
-                    // check for a commit character 
-                    if (nCmdID == (uint)VSConstants.VSStd2KCmdID.RETURN
-                        || nCmdID == (uint)VSConstants.VSStd2KCmdID.TAB
-                        || typedChar == '>')
-                    {
-                        // check for a selection 
-                        // if the selection is fully selected, commit the current session 
-                        if (m_session.SelectedCompletionSet.SelectionStatus.IsSelected)
-                        {
-                            string selectedCompletion = m_session.SelectedCompletionSet.SelectionStatus.Completion.DisplayText;
-                            m_session.Commit();
-                            TextSelection ts = m_dte.ActiveDocument.Selection as TextSelection;
-                            switch (selectedCompletion)
-                            {
-                                case "<!-->":
-                                    ts.CharLeft(false, 3);
-                                    break;
-                                case "<![CDATA[>":
-                                    ts.CharLeft(false, 3);
-                                    break;
-                                case "<c>":
-                                    ts.CharLeft(false, 4);
-                                    break;
-                                case "<code>":
-                                    ts.CharLeft(false, 7);
-                                    break;
-                                case "<example>":
-                                    ts.CharLeft(false, 10);
-                                    break;
-                                case "<exception>":
-                                    ts.CharLeft(false, 14);
-                                    break;
-                                case "<include>":
-                                    ts.CharLeft(false, 21);
-                                    break;
-                                case "<list>":
-                                    ts.CharLeft(false, 7);
-                                    break;
-                                case "<para>":
-                                    ts.CharLeft(false, 7);
-                                    break;
-                                case "<param>":
-                                    ts.CharLeft(false, 10);
-                                    break;
-                                case "<paramref>":
-                                    ts.CharLeft(false, 13);
-                                    break;
-                                case "<permission>":
-                                    ts.CharLeft(false, 15);
-                                    break;
-                                case "<remarks>":
-                                    ts.CharLeft(false, 10);
-                                    break;
-                                case "<returns>":
-                                    ts.CharLeft(false, 10);
-                                    break;
-                                case "<see>":
-                                    ts.CharLeft(false, 3);
-                                    break;
-                                case "<seealso>":
-                                    ts.CharLeft(false, 3);
-                                    break;
-                                case "<typeparam>":
-                                    ts.CharLeft(false, 14);
-                                    break;
-                                case "<typeparamref>":
-                                    ts.CharLeft(false, 3);
-                                    break;
-                                case "<value>":
-                                    ts.CharLeft(false, 8);
-                                        break;
-                                default:
-                                    break;
-                            }
-
-                            // also, don't add the character to the buffer 
-                            return VSConstants.S_OK;
-                        }
-                        else
-                        {
-                            // if there is no selection, dismiss the session
-                            m_session.Dismiss();
-                        }
-                    }
-                }
-                else
-                {
-                    if (pguidCmdGroup == VSConstants.VSStd2K && nCmdID == (uint)VSConstants.VSStd2KCmdID.RETURN)
-                    {
-                        string currentLine = m_textView.TextSnapshot.GetLineFromPosition(
-                                m_textView.Caret.Position.BufferPosition.Position).GetText();
-                        if (currentLine.TrimStart().StartsWith("///"))
-                        {
-                            TextSelection ts = m_dte.ActiveDocument.Selection as TextSelection;
-                            string spaces = currentLine.Replace(currentLine.TrimStart(), "");
-                            ts.Insert("\r\n" + spaces + "/// ");
-                            return VSConstants.S_OK;
-                        }
-                    }
-                }
-
-                // pass along the command so the char is added to the buffer
-                int retVal = m_nextCommandHandler.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
-                if (typedChar == '<')
-                {
-                    string currentLine = m_textView.TextSnapshot.GetLineFromPosition(
-                                m_textView.Caret.Position.BufferPosition.Position).GetText();
-                    if (currentLine.TrimStart().StartsWith("///"))
-                    {
-                        if (m_session == null || m_session.IsDismissed) // If there is no active session, bring up completion
-                        {
-                            if (this.TriggerCompletion())
-                            {
-                                m_session.SelectedCompletionSet.SelectBestMatch();
-                                m_session.SelectedCompletionSet.Recalculate();
+                                ts.MoveToLineAndOffset(oldLine, oldOffset);
+                                ts.Insert(sb.ToString());
+                                ts.MoveToLineAndOffset(oldLine, oldOffset);
+                                ts.LineDown();
+                                ts.EndOfLine();
                                 return VSConstants.S_OK;
                             }
                         }
-                    }
-                }
-                else if (
-                    commandID == (uint)VSConstants.VSStd2KCmdID.BACKSPACE ||
-                    commandID == (uint)VSConstants.VSStd2KCmdID.DELETE ||
-                    char.IsLetter(typedChar))
-                {
-                    if (m_session != null && !m_session.IsDismissed) // the completion session is already active, so just filter
-                    {
-                        m_session.SelectedCompletionSet.SelectBestMatch();
-                        m_session.SelectedCompletionSet.Recalculate();
+                        //For variables and void functions with no parameters we can do a single line comment
+                        ts.MoveToLineAndOffset(oldLine, oldOffset);
+                        ts.Insert("*  ");
+                        ts.MoveToLineAndOffset(oldLine, oldOffset + 2);
                         return VSConstants.S_OK;
                     }
+                    else if (nCmdID == (uint)VSConstants.VSStd2KCmdID.RETURN)
+                    {
+                        bool startsWithAsterisk = currentLine.TrimStart().StartsWith("* ");
+                        bool startsWithSlashAsterisk = currentLine.TrimStart().StartsWith("/*");
+                        if (startsWithAsterisk || startsWithSlashAsterisk)
+                        {
+                            // Calculate how many spaces
+                            string spaces = currentLine.Replace(currentLine.TrimStart(), "");
+                            TextSelection ts = m_dte.ActiveDocument.Selection as TextSelection;
+                            if (startsWithSlashAsterisk)
+                            {
+                                //If there is a slash then we need one more space for correct spacing
+                                ts.Insert("\r\n" + spaces + " * ");
+                            }
+                            else
+                            {
+                                //Otherwise the spacing we saved before is enough
+                                ts.Insert("\r\n" + spaces + "* ");
+                            }
+                            return VSConstants.S_OK;
+                        }
+                    }
                 }
-
-                return retVal;
+                // pass along the command so the char is added to the buffer
+                return m_nextCommandHandler.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
             }
             catch
             {
