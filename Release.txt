@@ -1,0 +1,5 @@
+Release version 1.0.1
+Generates Javadoc style code comments from C++ source code
+Ignores and skips over UE4 UFUNCTION macros for easier UE4 code documentation
+Generates asterisks for new comment lines
+

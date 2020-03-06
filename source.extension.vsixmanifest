@@ -1,10 +1,13 @@
 ﻿<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="CppJavadoc.tcbhat.70dbb5d8-42d5-43f8-af7b-37668d5c9b46" Version="1.0.0" Language="en-US" Publisher="Liam Robinson" />
+        <Identity Id="CppJavadoc.tcbhat.70dbb5d8-42d5-43f8-af7b-37668d5c9b46" Version="1.0.1" Language="en-US" Publisher="Liam Robinson" />
         <DisplayName>CppJavadoc</DisplayName>
-        <Description xml:space="preserve">Generate javadoc style documentaton comment stubs for c++ when a slash and two asterisks are typed
-A modification of tcbhat's CppTrippleSlash</Description>
+        <Description xml:space="preserve">Generates javadoc style documentaton comment stubs for c++ when a slash and two asterisks are typed. Also generates new asterisks for new lines in block comments.
+A modification of tcbhat's CppTrippleSlash.</Description>
         <License>MS-PL.txt</License>
+        <ReleaseNotes>Release.txt</ReleaseNotes>
+        <Icon>CppJavadocIcon.png</Icon>
+        <PreviewImage>Example.png</PreviewImage>
         <Tags>C++, Comments, javadoc comments</Tags>
     </Metadata>
     <Installation InstalledByMsi="false">
