@@ -84,7 +84,7 @@
                         
                         //Detect and skip over Unreal Engine Function Macros
                         string trimmedFuncLine = ts.Text.Trim();
-                        if (trimmedFuncLine.StartsWith("UFUNCTION("))
+                        if (trimmedFuncLine != "" && trimmedFuncLine.StartsWith("UFUNCTION("))
                         {
                             ts.EndOfLine();
                         }
@@ -151,22 +151,54 @@
                     }
                     else if (nCmdID == (uint)VSConstants.VSStd2KCmdID.RETURN)
                     {
-                        bool startsWithAsterisk = currentLine.TrimStart().StartsWith("* ");
-                        bool startsWithSlashAsterisk = currentLine.TrimStart().StartsWith("/*");
-                        if (startsWithAsterisk || startsWithSlashAsterisk)
+                        //Get text on current line before and after cursor
+                        TextSelection ts = m_dte.ActiveDocument.Selection as TextSelection;
+                        int oldLine = ts.ActivePoint.Line;
+                        int oldOffset = ts.ActivePoint.LineCharOffset;
+                        ts.EndOfLine(true);
+                        string afterCursor = ts.Text;
+                        ts.MoveToLineAndOffset(oldLine, oldOffset);
+                        ts.StartOfLine(vsStartOfLineOptions.vsStartOfLineOptionsFirstColumn, true);
+                        string beforeCursor = ts.Text;
+                        string beforeCursorTrimmed = beforeCursor.TrimStart();
+                        ts.MoveToLineAndOffset(oldLine, oldOffset);
+
+                        // Calculate how many spaces
+                        string spaces = beforeCursorTrimmed == "" ? beforeCursor : beforeCursor.Replace(beforeCursorTrimmed, "");
+                        
+                        bool hasAsteriskBeforeCursor = beforeCursorTrimmed == "" ? false : beforeCursorTrimmed.StartsWith("* ");
+                        bool hasBlockTerminatorAfterCursor = afterCursor == "" ? false : afterCursor.EndsWith("*/");
+                        bool hasBlockTerminatorDirectlyAfterCursor = hasBlockTerminatorAfterCursor && afterCursor.Trim() == "*/";
+
+                        //Add a space to maintain correct asterisk alignment if needed
+                        if (beforeCursorTrimmed != "" && beforeCursorTrimmed.StartsWith("/*"))
                         {
-                            // Calculate how many spaces
-                            string spaces = currentLine.Replace(currentLine.TrimStart(), "");
-                            TextSelection ts = m_dte.ActiveDocument.Selection as TextSelection;
-                            if (startsWithSlashAsterisk)
+                            hasAsteriskBeforeCursor = true;
+                            spaces += " ";
+                        }
+
+                        if (hasAsteriskBeforeCursor)
+                        {
+                            ts.Insert("\r\n" + spaces);
+                            if (!hasBlockTerminatorAfterCursor)
                             {
-                                //If there is a slash then we need one more space for correct spacing
-                                ts.Insert("\r\n" + spaces + " * ");
+                                ts.Insert("* ");
                             }
-                            else
+                            else if (hasBlockTerminatorDirectlyAfterCursor) {
+                                ts.Delete(afterCursor.Length);
+                                ts.Insert("*/");
+                                ts.MoveToLineAndOffset(ts.ActivePoint.Line, ts.ActivePoint.LineCharOffset - 2);
+                            }
+                            return VSConstants.S_OK;
+                        }
+                        else if (hasBlockTerminatorAfterCursor)
+                        {
+                            ts.Insert("* \r\n" + spaces);
+                            if (hasBlockTerminatorDirectlyAfterCursor)
                             {
-                                //Otherwise the spacing we saved before is enough
-                                ts.Insert("\r\n" + spaces + "* ");
+                                ts.Delete(afterCursor.Length);
+                                ts.Insert("*/");
+                                ts.MoveToLineAndOffset(ts.ActivePoint.Line, ts.ActivePoint.LineCharOffset - 2);
                             }
                             return VSConstants.S_OK;
                         }

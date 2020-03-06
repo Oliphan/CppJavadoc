@@ -176,8 +176,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="CppJavadocCompletionCommandHandler.cs" />
     <Compile Include="CppJavadocCompletionHandlerProvider.cs" />
-    <Compile Include="CppJavadocCompletionSource.cs" />
-    <Compile Include="CppJavadocCompletionSourceProvider.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
